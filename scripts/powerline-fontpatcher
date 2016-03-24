@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/python
 # vim:fileencoding=utf-8:noet
 
 import argparse
@@ -32,13 +32,15 @@ def get_argparser(ArgumentParser=argparse.ArgumentParser):
 	                    dest='source_font',
 	                    default='{0}/../fonts/powerline-symbols.sfd'.format(sys.path[0]),
 	                    type=argparse.FileType('rb'))
+	parser.add_argument('--fix_mono', help='fix mono', default=False,
+	                    action='store_false', dest='fix_mono')
 	return parser
 
 
 FONT_NAME_RE = re.compile(r'^([^-]*)(?:(-.*))?$')
 
 
-def patch_one_font(source_font, target_font, rename_font=True):
+def patch_one_font(source_font, target_font, rename_font=True, fix_mono=False):
 	target_font_em_original = target_font.em
 	target_font.em = 2048
 	target_font.encoding = 'ISO10646'
@@ -110,6 +112,11 @@ def patch_one_font(source_font, target_font, rename_font=True):
 		# Reset the font's glyph width so it's still considered monospaced
 		target_font[source_glyph.unicode].width = target_font_width
 
+        if fix_mono:
+            for target_glyph in target_font.glyphs():
+                if target_glyph.width == 0:
+                    target_glyph.width = target_font_width
+
 	target_font.em = target_font_em_original
 
 	# FIXME: Menlo and Meslo font do have these substitutes, but U+FB01 and
@@ -125,12 +132,12 @@ def patch_one_font(source_font, target_font, rename_font=True):
 	target_font.generate('{0}{1}'.format(target_font.fullname, extension))
 
 
-def patch_fonts(source_file, target_files, rename_font=True):
+def patch_fonts(source_file, target_files, rename_font=True, fix_mono=False):
 	source_font = fontforge.open(source_file.name)
 	for target_file in target_files:
 		target_font = fontforge.open(target_file.name)
 		try:
-			patch_one_font(source_font, target_font, rename_font)
+			patch_one_font(source_font, target_font, rename_font, fix_mono)
 		finally:
 			target_font.close()
 	return 0
@@ -138,7 +145,7 @@ def patch_fonts(source_file, target_files, rename_font=True):
 
 def main(argv):
 	args = get_argparser().parse_args(argv)
-	return patch_fonts(args.source_font, args.target_fonts, args.rename_font)
+	return patch_fonts(args.source_font, args.target_fonts, args.rename_font, args.fix_mono)
 
 
 raise SystemExit(main(sys.argv[1:]))
